@@ -66,21 +66,32 @@ document.addEventListener('DOMContentLoaded', function() {
     const loginBtn = document.getElementById("loginBtn");
     if (loginBtn) {
         loginBtn.onclick = function() {
-            // Check if we're in Pi Browser
-            if (!navigator.userAgent.includes('Pi Browser') && !navigator.userAgent.includes('iPhone')) {
-                alert('This app requires Pi Browser to function properly. Please open it in Pi Browser.');
+            // Enhanced Pi Browser detection
+            const userAgent = navigator.userAgent;
+            console.log('User Agent:', userAgent);
+            
+            // More comprehensive Pi Browser detection
+            const isPiBrowser = userAgent.includes('Pi Browser') || 
+                               userAgent.includes('PiBrowser') || 
+                               userAgent.includes('Pi/') ||
+                               (userAgent.includes('iPhone') && userAgent.includes('Pi')) ||
+                               (userAgent.includes('Android') && userAgent.includes('Pi'));
+            
+            console.log('Pi Browser detected:', isPiBrowser);
+            
+            if (!isPiBrowser) {
+                alert(`Pi Browser not detected!\n\nYour User Agent: ${userAgent}\n\nThis app requires Pi Browser. Please:\n1. Download Pi Browser from the Pi Network app\n2. Open this URL in Pi Browser: https://cenpenadmin.github.io/php-appraisells/`);
                 return;
             }
             
-            // Wait for Pi SDK and then redirect
-            waitForPiSDK(function(error) {
-                if (error) {
-                    console.error('Pi SDK not available:', error);
-                    alert('Pi SDK not available. Please ensure you are using Pi Browser and try again.');
-                } else {
-                    window.location.href = 'profile.html';
-                }
-            });
+            // Check if Pi SDK is available before proceeding
+            if (typeof Pi === 'undefined') {
+                alert('Pi SDK not loaded. Please ensure you have a stable internet connection and try refreshing the page.');
+                return;
+            }
+            
+            console.log('Pi SDK available, proceeding to profile...');
+            window.location.href = 'profile.html';
         };
     }
     
@@ -89,9 +100,19 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function login() {
-    // Check if we're in Pi Browser
-    if (!navigator.userAgent.includes('Pi Browser') && !navigator.userAgent.includes('iPhone')) {
-        alert('This app requires Pi Browser to function properly. Please open it in Pi Browser.');
+    // Enhanced Pi Browser detection
+    const userAgent = navigator.userAgent;
+    console.log('Login function - User Agent:', userAgent);
+    
+    // More comprehensive Pi Browser detection
+    const isPiBrowser = userAgent.includes('Pi Browser') || 
+                       userAgent.includes('PiBrowser') || 
+                       userAgent.includes('Pi/') ||
+                       (userAgent.includes('iPhone') && userAgent.includes('Pi')) ||
+                       (userAgent.includes('Android') && userAgent.includes('Pi'));
+    
+    if (!isPiBrowser) {
+        alert(`Pi Browser not detected!\n\nYour User Agent: ${userAgent}\n\nThis app requires Pi Browser. Please:\n1. Download Pi Browser from the Pi Network app\n2. Open this URL in Pi Browser: https://cenpenadmin.github.io/php-appraisells/`);
         return;
     }
     
@@ -99,8 +120,9 @@ function login() {
     waitForPiSDK(function(error) {
         if (error) {
             console.error('Pi SDK not available:', error);
-            alert('Pi SDK not available. Please ensure you are using Pi Browser and try again.');
+            alert('Pi SDK not available. Please ensure you are using Pi Browser with internet connection and try again.');
         } else {
+            console.log('Redirecting to profile page...');
             window.location.href = 'profile.html';
         }
     });

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pi Browser Diagnostic</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; line-height: 1.6; }
+        .diagnostic { padding: 15px; margin: 10px 0; border-radius: 8px; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .warning { background: #fff3cd; border: 1px solid #ffeaa7; color: #856404; }
+        .info { background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+        code { background: #f8f9fa; padding: 2px 4px; border-radius: 3px; }
+        .user-agent { font-size: 12px; word-break: break-all; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; border: none; border-radius: 5px; }
+        .test-btn { background: #007bff; color: white; }
+        .auth-btn { background: #28a745; color: white; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Pi Browser & SDK Diagnostic</h1>
+    
+    <div id="browser-check" class="diagnostic info">
+        <h3>🌐 Browser Detection</h3>
+        <p><strong>User Agent:</strong></p>
+        <div class="user-agent" id="user-agent"></div>
+        <div id="browser-result"></div>
+    </div>
+    
+    <div id="sdk-check" class="diagnostic info">
+        <h3>🔗 Pi SDK Status</h3>
+        <div id="sdk-result">Checking...</div>
+    </div>
+    
+    <div id="backend-check" class="diagnostic info">
+        <h3>🖥️ Backend Connection</h3>
+        <div id="backend-result">Not tested</div>
+        <button class="test-btn" onclick="testBackend()">Test Backend</button>
+    </div>
+    
+    <div id="auth-check" class="diagnostic info">
+        <h3>🔐 Pi Authentication Test</h3>
+        <div id="auth-result">Ready for testing</div>
+        <button class="auth-btn" onclick="testAuth()" id="auth-btn">Test Pi Authentication</button>
+    </div>
+    
+    <div class="diagnostic info">
+        <h3>📋 Troubleshooting Steps</h3>
+        <ol>
+            <li><strong>Ensure Pi Browser:</strong> Download from Pi Network mobile app</li>
+            <li><strong>Check URL:</strong> Use https://cenpenadmin.github.io/php-appraisells/</li>
+            <li><strong>Internet Connection:</strong> Ensure stable connection for Pi SDK</li>
+            <li><strong>Clear Cache:</strong> Refresh page or clear browser cache</li>
+            <li><strong>Pi Network App:</strong> Ensure you're logged into Pi Network</li>
+        </ol>
+    </div>
+    
+    <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+    <script>
+        // Display user agent
+        document.getElementById('user-agent').textContent = navigator.userAgent;
+        
+        // Check Pi Browser
+        function checkPiBrowser() {
+            const userAgent = navigator.userAgent;
+            const isPiBrowser = userAgent.includes('Pi Browser') || 
+                               userAgent.includes('PiBrowser') || 
+                               userAgent.includes('Pi/') ||
+                               (userAgent.includes('iPhone') && userAgent.includes('Pi')) ||
+                               (userAgent.includes('Android') && userAgent.includes('Pi'));
+            
+            const result = document.getElementById('browser-result');
+            if (isPiBrowser) {
+                result.innerHTML = '<div class="success">✅ Pi Browser detected!</div>';
+                document.getElementById('browser-check').className = 'diagnostic success';
+            } else {
+                result.innerHTML = '<div class="error">❌ Pi Browser NOT detected<br>Please open this page in Pi Browser</div>';
+                document.getElementById('browser-check').className = 'diagnostic error';
+            }
+            
+            return isPiBrowser;
+        }
+        
+        // Check Pi SDK
+        function checkPiSDK() {
+            const result = document.getElementById('sdk-result');
+            
+            if (typeof Pi === 'undefined') {
+                result.innerHTML = '<div class="error">❌ Pi SDK not loaded<br>Check internet connection and refresh</div>';
+                document.getElementById('sdk-check').className = 'diagnostic error';
+                return false;
+            } else {
+                result.innerHTML = '<div class="success">✅ Pi SDK loaded successfully</div>';
+                document.getElementById('sdk-check').className = 'diagnostic success';
+                return true;
+            }
+        }
+        
+        // Test backend connection
+        async function testBackend() {
+            const result = document.getElementById('backend-result');
+            result.textContent = 'Testing...';
+            
+            try {
+                const response = await fetch('https://4943480ece59.ngrok-free.app/health', {
+                    headers: { 'ngrok-skip-browser-warning': 'true' }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    result.innerHTML = `<div class="success">✅ Backend connected<br>Status: ${data.status}<br>PHP: ${data.php_version}</div>`;
+                    document.getElementById('backend-check').className = 'diagnostic success';
+                } else {
+                    result.innerHTML = `<div class="error">❌ Backend error: ${response.status}</div>`;
+                    document.getElementById('backend-check').className = 'diagnostic error';
+                }
+            } catch (error) {
+                result.innerHTML = `<div class="error">❌ Backend connection failed<br>${error.message}</div>`;
+                document.getElementById('backend-check').className = 'diagnostic error';
+            }
+        }
+        
+        // Test Pi Authentication
+        async function testAuth() {
+            const result = document.getElementById('auth-result');
+            const button = document.getElementById('auth-btn');
+            
+            button.disabled = true;
+            button.textContent = 'Testing...';
+            result.textContent = 'Initializing Pi authentication...';
+            
+            try {
+                // Check prerequisites
+                if (!checkPiBrowser()) {
+                    throw new Error('Pi Browser not detected');
+                }
+                
+                if (!checkPiSDK()) {
+                    throw new Error('Pi SDK not available');
+                }
+                
+                // Initialize Pi SDK
+                await Pi.init({ version: "2.0", sandbox: true });
+                result.innerHTML = 'Pi SDK initialized, requesting authentication...';
+                
+                // Authenticate
+                const auth = await Pi.authenticate(['username', 'payments'], function(scopes) {
+                    result.innerHTML = `Authentication scopes: ${JSON.stringify(scopes)}`;
+                });
+                
+                result.innerHTML = `<div class="success">✅ Authentication successful!<br>
+                    Username: ${auth.user.username}<br>
+                    UID: ${auth.user.uid}<br>
+                    Wallet: ${auth.user.wallet || 'Not provided'}</div>`;
+                document.getElementById('auth-check').className = 'diagnostic success';
+                
+            } catch (error) {
+                result.innerHTML = `<div class="error">❌ Authentication failed<br>${error.message}</div>`;
+                document.getElementById('auth-check').className = 'diagnostic error';
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Test Pi Authentication';
+            }
+        }
+        
+        // Run initial checks
+        document.addEventListener('DOMContentLoaded', function() {
+            checkPiBrowser();
+            
+            // Wait a moment for Pi SDK to load
+            setTimeout(() => {
+                checkPiSDK();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
