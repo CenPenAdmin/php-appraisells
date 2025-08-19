@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auction Winners - Appraisells</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .winners-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .winner-item {
+            background: var(--surface-color);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow);
+        }
+        .winner-image {
+            width: 150px;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 10px;
+            float: left;
+            margin-right: 20px;
+        }
+        .winner-details h3 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+        .payment-section {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
+        .payment-deadline {
+            color: #856404;
+            font-weight: bold;
+        }
+        .payment-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .payment-btn:hover {
+            background: var(--secondary-color);
+        }
+        .no-winners {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-color);
+        }
+        .clearfix::after {
+            content: "";
+            display: table;
+            clear: both;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="nav-brand">Appraisells</div>
+            <div class="nav-links">
+                <a href="index.html">Home</a>
+                <a href="profile.html">Profile</a>
+                <a href="liveAuction.html">Live Auction</a>
+                <a href="my-digital-art.html">My Digital Art</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="winners-container">
+        <h1>Auction Winners</h1>
+        
+        <div id="winnersDisplay">
+            Loading winners...
+        </div>
+    </main>
+
+    <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+    <script>
+        let currentUser = {};
+
+        // Initialize page
+        async function initializePage() {
+            currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+            await loadUserWins();
+        }
+
+        // Load user's wins
+        async function loadUserWins() {
+            if (!currentUser.username) {
+                document.getElementById('winnersDisplay').innerHTML = 
+                    '<div class="no-winners">Please sign in to view your wins.</div>';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api.php?endpoint=user-wins&username=${currentUser.username}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayWins(data.wins);
+                } else {
+                    document.getElementById('winnersDisplay').innerHTML = 
+                        '<div class="no-winners">Failed to load wins.</div>';
+                }
+            } catch (error) {
+                console.error('Error loading wins:', error);
+                document.getElementById('winnersDisplay').innerHTML = 
+                    '<div class="no-winners">Error loading wins.</div>';
+            }
+        }
+
+        // Display wins
+        function displayWins(wins) {
+            const container = document.getElementById('winnersDisplay');
+            
+            if (!wins || wins.length === 0) {
+                container.innerHTML = '<div class="no-winners">No wins found. Better luck next time!</div>';
+                return;
+            }
+
+            container.innerHTML = wins.map(win => {
+                const paymentDeadline = new Date(win.payment_deadline);
+                const now = new Date();
+                const timeRemaining = paymentDeadline - now;
+                const hoursRemaining = Math.max(0, Math.floor(timeRemaining / (1000 * 60 * 60)));
+                
+                return `
+                    <div class="winner-item clearfix">
+                        <img src="images/SueHipple${win.item_id.slice(-1)}.jpg" alt="${win.item_id}" class="winner-image">
+                        <div class="winner-details">
+                            <h3>Congratulations! You won ${win.item_id.toUpperCase()}</h3>
+                            <p><strong>Winning Bid:</strong> π${win.winning_bid}</p>
+                            <p><strong>Payment Status:</strong> ${win.payment_status}</p>
+                            
+                            ${win.payment_status === 'pending' ? `
+                                <div class="payment-section">
+                                    <div class="payment-deadline">
+                                        Payment deadline: ${paymentDeadline.toLocaleString()}
+                                        <br>Time remaining: ${hoursRemaining} hours
+                                    </div>
+                                    <button class="payment-btn" onclick="processPayment('${win.id}', ${win.winning_bid})">
+                                        Pay π${win.winning_bid} with Pi
+                                    </button>
+                                </div>
+                            ` : win.payment_status === 'completed' ? `
+                                <div style="color: green; font-weight: bold;">
+                                    ✓ Payment completed! Your digital art will be delivered soon.
+                                </div>
+                            ` : `
+                                <div style="color: red; font-weight: bold;">
+                                    ✗ Payment expired. Contact support if you believe this is an error.
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Process payment using Pi SDK
+        async function processPayment(winnerId, amount) {
+            try {
+                // Initialize Pi SDK payment
+                const payment = Pi.createPayment({
+                    amount: amount,
+                    memo: `Payment for auction item - Winner ID: ${winnerId}`,
+                    metadata: {
+                        winnerId: winnerId,
+                        type: 'auction_payment'
+                    }
+                }, {
+                    onReadyForServerApproval: function(paymentId) {
+                        console.log('Payment ready for server approval:', paymentId);
+                        // Send paymentId to your server for approval
+                        approvePayment(paymentId, winnerId);
+                    },
+                    onReadyForServerCompletion: function(paymentId, txid) {
+                        console.log('Payment ready for server completion:', paymentId, txid);
+                        // Send to server for completion
+                        completePayment(paymentId, txid, winnerId);
+                    },
+                    onCancel: function(paymentId) {
+                        console.log('Payment cancelled:', paymentId);
+                        alert('Payment was cancelled.');
+                    },
+                    onError: function(error, payment) {
+                        console.error('Payment error:', error);
+                        alert('Payment failed: ' + error.message);
+                    }
+                });
+            } catch (error) {
+                console.error('Error creating payment:', error);
+                alert('Failed to create payment. Please try again.');
+            }
+        }
+
+        // Approve payment on server
+        async function approvePayment(paymentId, winnerId) {
+            try {
+                const response = await fetch('/api.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        endpoint: 'approve-payment',
+                        paymentId: paymentId,
+                        winnerId: winnerId,
+                        username: currentUser.username
+                    })
+                });
+
+                const data = await response.json();
+                if (!data.success) {
+                    console.error('Payment approval failed:', data.error);
+                }
+            } catch (error) {
+                console.error('Error approving payment:', error);
+            }
+        }
+
+        // Complete payment on server
+        async function completePayment(paymentId, txid, winnerId) {
+            try {
+                const response = await fetch('/api.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        endpoint: 'complete-payment',
+                        paymentId: paymentId,
+                        txid: txid,
+                        winnerId: winnerId,
+                        username: currentUser.username
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    alert('Payment completed successfully!');
+                    // Reload the page to show updated status
+                    location.reload();
+                } else {
+                    console.error('Payment completion failed:', data.error);
+                    alert('Payment completion failed. Please contact support.');
+                }
+            } catch (error) {
+                console.error('Error completing payment:', error);
+                alert('Error completing payment. Please contact support.');
+            }
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', initializePage);
+    </script>
+</body>
+</html>

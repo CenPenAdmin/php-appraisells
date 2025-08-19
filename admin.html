@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Appraisells</title>
+    
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background-color: #030006;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #030006;
+            margin-bottom: 10px;
+        }
+        
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .section h3 {
+            color: #030006;
+            margin-top: 0;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+        
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        .table th, .table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            background-color: #030006;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        
+        .btn:hover {
+            background-color: #222;
+        }
+        
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 0.8em;
+        }
+        
+        .status-active {
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .status-inactive {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 15px 0;
+        }
+        
+        .refresh-btn {
+            float: right;
+            margin-top: -45px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Appraisells Admin Dashboard</h1>
+            <p>Platform Management & Analytics</p>
+        </div>
+        
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-number" id="totalUsers">-</div>
+                <div class="stat-label">Total Users</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="totalPayments">-</div>
+                <div class="stat-label">Total Payments</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="activeSubscriptions">-</div>
+                <div class="stat-label">Active Subscriptions</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="totalSessions">-</div>
+                <div class="stat-label">Page Sessions</div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3>Recent User Profiles</h3>
+            <button class="btn btn-sm refresh-btn" onclick="loadUserProfiles()">Refresh</button>
+            <div id="userProfilesContainer">
+                <div class="loading">Loading user profiles...</div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3>Recent Payments</h3>
+            <button class="btn btn-sm refresh-btn" onclick="loadPayments()">Refresh</button>
+            <div id="paymentsContainer">
+                <div class="loading">Loading payments...</div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3>Active Subscriptions</h3>
+            <button class="btn btn-sm refresh-btn" onclick="loadSubscriptions()">Refresh</button>
+            <div id="subscriptionsContainer">
+                <div class="loading">Loading subscriptions...</div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3>Auction Activity</h3>
+            <button class="btn btn-sm refresh-btn" onclick="loadAuctionBids()">Refresh</button>
+            <div id="auctionContainer">
+                <div class="loading">Loading auction data...</div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3>Quick Actions</h3>
+            <button class="btn" onclick="createTestSubscription()">Create Test Subscription</button>
+            <button class="btn" onclick="closeAuction()">Close Current Auction</button>
+            <button class="btn" onclick="exportData()">Export Data</button>
+        </div>
+    </div>
+
+    <script>
+        // Base API URL
+        const API_URL = window.location.origin + '/api.php';
+        
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDashboardData();
+        });
+        
+        // Load all dashboard data
+        async function loadDashboardData() {
+            await Promise.all([
+                loadAnalytics(),
+                loadUserProfiles(),
+                loadPayments(),
+                loadSubscriptions(),
+                loadAuctionBids()
+            ]);
+        }
+        
+        // Load analytics/stats
+        async function loadAnalytics() {
+            try {
+                const response = await fetch(`${API_URL}/analytics`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('totalUsers').textContent = result.overview.totalUsers || 0;
+                    document.getElementById('totalPayments').textContent = result.overview.totalPayments || 0;
+                    document.getElementById('totalSessions').textContent = result.overview.totalSessions || 0;
+                }
+            } catch (error) {
+                console.error('Error loading analytics:', error);
+            }
+        }
+        
+        // Load user profiles
+        async function loadUserProfiles() {
+            const container = document.getElementById('userProfilesContainer');
+            container.innerHTML = '<div class="loading">Loading user profiles...</div>';
+            
+            try {
+                const response = await fetch(`${API_URL}/user-profiles`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    container.innerHTML = createUserProfilesTable(result.profiles.slice(0, 10));
+                } else {
+                    container.innerHTML = '<div class="error">Failed to load user profiles</div>';
+                }
+            } catch (error) {
+                container.innerHTML = '<div class="error">Error loading user profiles</div>';
+            }
+        }
+        
+        // Create user profiles table
+        function createUserProfilesTable(profiles) {
+            if (profiles.length === 0) {
+                return '<p>No user profiles found.</p>';
+            }
+            
+            let html = '<table class="table"><thead><tr><th>Username</th><th>Last Seen</th><th>Subscription</th><th>Total Payments</th></tr></thead><tbody>';
+            
+            profiles.forEach(profile => {
+                const lastSeen = new Date(profile.last_seen).toLocaleDateString();
+                const subscriptionClass = profile.subscription_status === 'active' ? 'status-active' : 'status-inactive';
+                
+                html += `
+                    <tr>
+                        <td>${profile.username}</td>
+                        <td>${lastSeen}</td>
+                        <td class="${subscriptionClass}">${profile.subscription_status}</td>
+                        <td>$${profile.total_payments || 0}</td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            return html;
+        }
+        
+        // Load payments
+        async function loadPayments() {
+            const container = document.getElementById('paymentsContainer');
+            container.innerHTML = '<div class="loading">Loading payments...</div>';
+            
+            try {
+                const response = await fetch(`${API_URL}/payments`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    container.innerHTML = createPaymentsTable(result.payments.slice(0, 10));
+                } else {
+                    container.innerHTML = '<div class="error">Failed to load payments</div>';
+                }
+            } catch (error) {
+                container.innerHTML = '<div class="error">Error loading payments</div>';
+            }
+        }
+        
+        // Create payments table
+        function createPaymentsTable(payments) {
+            if (payments.length === 0) {
+                return '<p>No payments found.</p>';
+            }
+            
+            let html = '<table class="table"><thead><tr><th>Payment ID</th><th>Username</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody>';
+            
+            payments.forEach(payment => {
+                const date = new Date(payment.created_at).toLocaleDateString();
+                const statusClass = payment.status === 'completed' ? 'status-active' : 'status-inactive';
+                
+                html += `
+                    <tr>
+                        <td>${payment.payment_id.substring(0, 20)}...</td>
+                        <td>${payment.username || 'N/A'}</td>
+                        <td>${payment.amount} π</td>
+                        <td class="${statusClass}">${payment.status}</td>
+                        <td>${date}</td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            return html;
+        }
+        
+        // Load subscriptions
+        async function loadSubscriptions() {
+            const container = document.getElementById('subscriptionsContainer');
+            container.innerHTML = '<div class="loading">Loading subscriptions...</div>';
+            
+            try {
+                const response = await fetch(`${API_URL}/subscriptions`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('activeSubscriptions').textContent = result.active;
+                    container.innerHTML = createSubscriptionsTable(result.subscriptions.slice(0, 10));
+                } else {
+                    container.innerHTML = '<div class="error">Failed to load subscriptions</div>';
+                }
+            } catch (error) {
+                container.innerHTML = '<div class="error">Error loading subscriptions</div>';
+            }
+        }
+        
+        // Create subscriptions table
+        function createSubscriptionsTable(subscriptions) {
+            if (subscriptions.length === 0) {
+                return '<p>No subscriptions found.</p>';
+            }
+            
+            let html = '<table class="table"><thead><tr><th>Username</th><th>Type</th><th>Start Date</th><th>End Date</th><th>Status</th></tr></thead><tbody>';
+            
+            subscriptions.forEach(sub => {
+                const startDate = new Date(sub.start_date).toLocaleDateString();
+                const endDate = new Date(sub.end_date).toLocaleDateString();
+                const statusClass = sub.is_active ? 'status-active' : 'status-inactive';
+                
+                html += `
+                    <tr>
+                        <td>${sub.username}</td>
+                        <td>${sub.subscription_type}</td>
+                        <td>${startDate}</td>
+                        <td>${endDate}</td>
+                        <td class="${statusClass}">${sub.status}</td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            return html;
+        }
+        
+        // Load auction bids
+        async function loadAuctionBids() {
+            const container = document.getElementById('auctionContainer');
+            container.innerHTML = '<div class="loading">Loading auction data...</div>';
+            
+            try {
+                const response = await fetch(`${API_URL}/auction-highest-bids`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    container.innerHTML = createAuctionTable(result.highestBids);
+                } else {
+                    container.innerHTML = '<div class="error">Failed to load auction data</div>';
+                }
+            } catch (error) {
+                container.innerHTML = '<div class="error">Error loading auction data</div>';
+            }
+        }
+        
+        // Create auction table
+        function createAuctionTable(highestBids) {
+            let html = '<table class="table"><thead><tr><th>Item ID</th><th>Current Bid</th><th>Highest Bidder</th><th>Status</th></tr></thead><tbody>';
+            
+            Object.keys(highestBids).forEach(itemId => {
+                const bid = highestBids[itemId];
+                const amount = bid.bid_amount || 0;
+                const bidder = bid.username || 'No bids';
+                
+                html += `
+                    <tr>
+                        <td>${itemId}</td>
+                        <td>${amount} π</td>
+                        <td>${bidder}</td>
+                        <td>Active</td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table>';
+            return html;
+        }
+        
+        // Create test subscription
+        async function createTestSubscription() {
+            const username = prompt('Enter username for test subscription:');
+            if (!username) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/test-create-subscription`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username: username })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Test subscription created successfully!');
+                    loadSubscriptions();
+                } else {
+                    alert('Failed to create test subscription: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error creating test subscription');
+            }
+        }
+        
+        // Close auction
+        async function closeAuction() {
+            if (!confirm('Are you sure you want to close the current auction?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_URL}/close-auction`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({})
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(`Auction closed! Winners: ${result.winners.length}`);
+                    loadAuctionBids();
+                } else {
+                    alert('Failed to close auction: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error closing auction');
+            }
+        }
+        
+        // Export data (placeholder)
+        function exportData() {
+            alert('Export functionality would download CSV files of all platform data.');
+        }
+    </script>
+</body>
+</html>

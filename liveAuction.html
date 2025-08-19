@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Auction - Appraisells</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .auction-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .countdown-timer {
+            text-align: center;
+            font-size: 2em;
+            color: var(--accent-color);
+            background: var(--surface-color);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        .auction-items {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .auction-item {
+            background: var(--surface-color);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+        .item-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+        .item-details {
+            padding: 20px;
+        }
+        .bid-section {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .bid-input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid var(--primary-color);
+            border-radius: 5px;
+        }
+        .bid-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .bid-btn:hover {
+            background: var(--secondary-color);
+        }
+        .current-bid {
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        .alert {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .alert-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .alert-info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .alert-warning {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .btn {
+            padding: 5px 10px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-left: 5px;
+        }
+        .btn-sm {
+            padding: 3px 8px;
+            font-size: 0.875em;
+        }
+        .btn-outline {
+            background: transparent;
+            color: var(--primary-color);
+            border: 1px solid var(--primary-color);
+        }
+        .btn-outline:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="nav-brand">Appraisells</div>
+            <div class="nav-links">
+                <a href="index.html">Home</a>
+                <a href="profile.html">Profile</a>
+                <a href="liveAuction.html" class="active">Live Auction</a>
+                <a href="my-digital-art.html">My Digital Art</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="auction-container">
+        <h1>Live Auction</h1>
+        
+        <div class="countdown-timer" id="countdown">
+            Loading auction timer...
+        </div>
+
+        <div id="auctionStatus" class="status-message"></div>
+
+        <div class="auction-items" id="auctionItems">
+            <!-- Auction items will be loaded here -->
+        </div>
+    </main>
+
+    <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+    <script>
+        let countdownTimer;
+        let auctionEndTime;
+        let userBidStatus = {};
+
+        // Initialize auction
+        async function initializeAuction() {
+            try {
+                const response = await fetch('/api.php?endpoint=auction-status');
+                const data = await response.json();
+                
+                if (data.success) {
+                    auctionEndTime = new Date(data.endTime).getTime();
+                    updateCountdown();
+                    countdownTimer = setInterval(updateCountdown, 1000);
+                    
+                    if (data.isActive) {
+                        loadAuctionItems();
+                    } else {
+                        document.getElementById('auctionStatus').innerHTML = 
+                            '<div class="alert alert-info">This auction has ended. Winners will be announced soon.</div>';
+                    }
+                } else {
+                    console.error('Failed to load auction status:', data.error);
+                }
+            } catch (error) {
+                console.error('Error initializing auction:', error);
+            }
+        }
+
+        // Update countdown timer
+        function updateCountdown() {
+            const now = new Date().getTime();
+            const distance = auctionEndTime - now;
+
+            if (distance < 0) {
+                clearInterval(countdownTimer);
+                document.getElementById('countdown').innerHTML = 'AUCTION ENDED';
+                document.getElementById('auctionStatus').innerHTML = 
+                    '<div class="alert alert-info">This auction has ended. Winners are being calculated...</div>';
+                setTimeout(calculateWinners, 2000);
+                return;
+            }
+
+            const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+            document.getElementById('countdown').innerHTML = 
+                `${days}d ${hours}h ${minutes}m ${seconds}s`;
+        }
+
+        // Load auction items
+        function loadAuctionItems() {
+            const items = [
+                { id: 'item1', name: 'Digital Art Piece 1', image: 'images/SueHipple1.jpg', currentBid: 0 },
+                { id: 'item2', name: 'Digital Art Piece 2', image: 'images/SueHipple2.jpg', currentBid: 0 },
+                { id: 'item3', name: 'Digital Art Piece 3', image: 'images/SueHipple3.jpg', currentBid: 0 },
+                { id: 'item4', name: 'Digital Art Piece 4', image: 'images/SueHipple4.jpg', currentBid: 0 },
+                { id: 'item5', name: 'Digital Art Piece 5', image: 'images/SueHipple5.jpg', currentBid: 0 }
+            ];
+
+            const container = document.getElementById('auctionItems');
+            container.innerHTML = items.map(item => `
+                <div class="auction-item">
+                    <img src="${item.image}" alt="${item.name}" class="item-image">
+                    <div class="item-details">
+                        <h3>${item.name}</h3>
+                        <p class="current-bid">Current Bid: π${item.currentBid}</p>
+                        <div class="bid-section">
+                            <input type="number" class="bid-input" id="bid-${item.id}" 
+                                   placeholder="Enter bid amount" min="0" step="0.01">
+                            <button class="bid-btn" onclick="placeBid('${item.id}')">Place Bid</button>
+                        </div>
+                        <div id="bid-status-${item.id}" class="bid-status"></div>
+                    </div>
+                </div>
+            `).join('');
+
+            // Load user's current bids
+            loadUserBids();
+        }
+
+        // Load user's current bids
+        async function loadUserBids() {
+            try {
+                const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+                if (!user.username) return;
+
+                const response = await fetch(`/api.php?endpoint=user-bid-status&username=${user.username}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    userBidStatus = data.bidStatus;
+                    updateBidStatus();
+                }
+            } catch (error) {
+                console.error('Error loading user bids:', error);
+            }
+        }
+
+        // Update bid status display
+        function updateBidStatus() {
+            for (const itemId in userBidStatus) {
+                const status = userBidStatus[itemId];
+                const statusElement = document.getElementById(`bid-status-${itemId}`);
+                if (statusElement) {
+                    if (status.status === 'active') {
+                        statusElement.innerHTML = `
+                            <div class="alert alert-success">
+                                Your bid: π${status.bidAmount}
+                                <button onclick="removeBid('${itemId}')" class="btn btn-sm btn-outline">Remove</button>
+                            </div>
+                        `;
+                    } else {
+                        statusElement.innerHTML = '';
+                    }
+                }
+            }
+        }
+
+        // Place a bid
+        async function placeBid(itemId) {
+            const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+            if (!user.username) {
+                alert('Please sign in to place bids');
+                return;
+            }
+
+            const bidInput = document.getElementById(`bid-${itemId}`);
+            const bidAmount = parseFloat(bidInput.value);
+
+            if (!bidAmount || bidAmount <= 0) {
+                alert('Please enter a valid bid amount');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        endpoint: 'auction-bid',
+                        username: user.username,
+                        userUid: user.uid,
+                        itemId: itemId,
+                        bidAmount: bidAmount
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    bidInput.value = '';
+                    userBidStatus[itemId] = {
+                        bidAmount: bidAmount,
+                        status: 'active',
+                        timestamp: new Date().toISOString()
+                    };
+                    updateBidStatus();
+                    
+                    document.getElementById('auctionStatus').innerHTML = 
+                        `<div class="alert alert-success">Bid placed successfully for π${bidAmount}!</div>`;
+                    setTimeout(() => {
+                        document.getElementById('auctionStatus').innerHTML = '';
+                    }, 3000);
+                } else {
+                    alert('Failed to place bid: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Error placing bid:', error);
+                alert('Error placing bid. Please try again.');
+            }
+        }
+
+        // Remove a bid
+        async function removeBid(itemId) {
+            const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+            if (!user.username) return;
+
+            try {
+                const response = await fetch('/api.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        endpoint: 'remove-auction-bid',
+                        username: user.username,
+                        userUid: user.uid,
+                        itemId: itemId
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    delete userBidStatus[itemId];
+                    updateBidStatus();
+                    
+                    document.getElementById('auctionStatus').innerHTML = 
+                        '<div class="alert alert-info">Bid removed successfully!</div>';
+                    setTimeout(() => {
+                        document.getElementById('auctionStatus').innerHTML = '';
+                    }, 3000);
+                } else {
+                    alert('Failed to remove bid: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Error removing bid:', error);
+                alert('Error removing bid. Please try again.');
+            }
+        }
+
+        // Calculate winners when auction ends
+        async function calculateWinners() {
+            try {
+                const response = await fetch('/api.php?endpoint=calculate-winners&auctionId=1');
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('auctionStatus').innerHTML = 
+                        `<div class="alert alert-success">Winners calculated! ${data.winnersCount} winners found.</div>`;
+                    
+                    // Optionally redirect to winners page or show winners
+                    setTimeout(() => {
+                        window.location.href = 'auction-winner.html';
+                    }, 3000);
+                } else {
+                    console.error('Failed to calculate winners:', data.error);
+                }
+            } catch (error) {
+                console.error('Error calculating winners:', error);
+            }
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', initializeAuction);
+    </script>
+</body>
+</html>

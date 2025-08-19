@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Digital Art - Appraisells</title>
+    
+    <!-- Configuration -->
+    <script src="script.js"></script>
+    
+    <!-- Pi SDK -->
+    <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+    
+    <link rel="stylesheet" href="style.css">
+    
+    <style>
+        .art-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .page-title {
+            text-align: center;
+            font-size: 2em;
+            margin: 30px 0;
+            color: #030006;
+        }
+        
+        .art-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin: 20px 0;
+        }
+        
+        .art-item {
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 20px;
+            background: #f9f9f9;
+            text-align: center;
+        }
+        
+        .art-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .art-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #030006;
+            margin-bottom: 10px;
+        }
+        
+        .art-details {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 15px;
+        }
+        
+        .download-button {
+            width: 100%;
+            padding: 12px;
+            background-color: #030006;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1.1em;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .download-button:hover {
+            background-color: #222;
+        }
+        
+        .back-button {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #030006;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 20px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+        
+        .empty-state h3 {
+            color: #030006;
+            margin-bottom: 15px;
+        }
+        
+        .status-message {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 6px;
+            text-align: center;
+        }
+        
+        .loading {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>APPRAISELLS</h1>
+    </header>
+    
+    <a href="profile.html" class="back-button">← Back to Profile</a>
+    
+    <div class="art-container">
+        <h2 class="page-title">My Digital Art Collection</h2>
+        
+        <div id="statusMessage" class="status-message loading" style="display: none;">
+            Loading your digital art...
+        </div>
+        
+        <div class="art-grid" id="artGrid">
+            <!-- Digital art items will be loaded here -->
+        </div>
+        
+        <div id="emptyState" class="empty-state" style="display: none;">
+            <h3>No Digital Art Yet</h3>
+            <p>You haven't won any auctions yet or your purchased art is still being prepared.</p>
+            <p>Visit the <a href="liveAuction.html">Live Auction</a> to bid on digital artwork!</p>
+        </div>
+    </div>
+
+    <script>
+        let piUser = null;
+        let digitalArt = [];
+        
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            authenticateUser().then(() => {
+                loadDigitalArt();
+            });
+        });
+        
+        // Authenticate user with Pi Network
+        async function authenticateUser() {
+            try {
+                showStatus('Authenticating with Pi Network...', 'loading');
+                
+                const auth = await Pi.authenticate(['username'], onIncompletePaymentFound);
+                piUser = auth.user;
+                
+                console.log('User authenticated:', piUser.username);
+                
+                // Log authentication
+                await logAuthentication(piUser.username, piUser.uid, true);
+                
+            } catch (error) {
+                console.error('Authentication failed:', error);
+                showStatus('Authentication failed. Please use Pi Browser.', 'error');
+                
+                // Redirect to login after a delay
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 3000);
+                return;
+            }
+        }
+        
+        // Handle incomplete payments
+        function onIncompletePaymentFound(payment) {
+            console.log('Found incomplete payment:', payment.identifier);
+            return Pi.completePayment(payment.identifier);
+        }
+        
+        // Log authentication to backend
+        async function logAuthentication(username, userUid, authSuccess) {
+            try {
+                await fetch(`${CONFIG.BACKEND_URL}/api.php/log-authentication`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        userUid: userUid,
+                        authSuccess: authSuccess
+                    })
+                });
+            } catch (error) {
+                console.error('Error logging authentication:', error);
+            }
+        }
+        
+        // Load digital art for the user
+        async function loadDigitalArt() {
+            if (!piUser) {
+                return;
+            }
+            
+            try {
+                showStatus('Loading your digital art collection...', 'loading');
+                
+                const response = await fetch(`${CONFIG.BACKEND_URL}/api.php/digital-art/${encodeURIComponent(piUser.username)}`);
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        digitalArt = result.artworks || [];
+                        renderDigitalArt();
+                    } else {
+                        throw new Error(result.error || 'Failed to load digital art');
+                    }
+                } else {
+                    throw new Error('Server error');
+                }
+                
+                document.getElementById('statusMessage').style.display = 'none';
+                
+            } catch (error) {
+                console.error('Error loading digital art:', error);
+                showStatus('Error loading digital art collection', 'error');
+                
+                setTimeout(() => {
+                    document.getElementById('statusMessage').style.display = 'none';
+                    showEmptyState();
+                }, 3000);
+            }
+        }
+        
+        // Render digital art items
+        function renderDigitalArt() {
+            const grid = document.getElementById('artGrid');
+            const emptyState = document.getElementById('emptyState');
+            
+            if (digitalArt.length === 0) {
+                showEmptyState();
+                return;
+            }
+            
+            grid.innerHTML = '';
+            emptyState.style.display = 'none';
+            
+            digitalArt.forEach(art => {
+                const artElement = createDigitalArtElement(art);
+                grid.appendChild(artElement);
+            });
+        }
+        
+        // Create digital art element
+        function createDigitalArtElement(art) {
+            const div = document.createElement('div');
+            div.className = 'art-item';
+            
+            const createdDate = new Date(art.created_at).toLocaleDateString();
+            const imagePath = getImagePath(art.item_id);
+            
+            div.innerHTML = `
+                <img src="${imagePath}" alt="Digital Art" class="art-image" 
+                     onerror="this.src='images/placeholder.png'">
+                
+                <div class="art-title">${getArtTitle(art.item_id)}</div>
+                
+                <div class="art-details">
+                    Item ID: ${art.item_id}<br>
+                    Acquired: ${createdDate}<br>
+                    License: Personal Use
+                </div>
+                
+                ${art.download_url ? 
+                    `<a href="${art.download_url}" class="download-button" target="_blank" onclick="trackDownload('${art.id}')">
+                        Download High-Res Version
+                    </a>` :
+                    `<button class="download-button" disabled>
+                        Preparing Download...
+                    </button>`
+                }
+            `;
+            
+            return div;
+        }
+        
+        // Get image path for item ID
+        function getImagePath(itemId) {
+            const imageMap = {
+                'item1': 'images/middle finger man.png',
+                'item2': 'images/SueHipple1.jpg',
+                'item3': 'images/SueHipple2.jpg',
+                'item4': 'images/SueHipple3.jpg',
+                'item5': 'images/SueHipple4.jpg'
+            };
+            
+            return imageMap[itemId] || 'images/placeholder.png';
+        }
+        
+        // Get art title for item ID
+        function getArtTitle(itemId) {
+            const titleMap = {
+                'item1': 'Abstract Composition #1',
+                'item2': 'Abstract Composition #2',
+                'item3': 'Abstract Composition #3',
+                'item4': 'Abstract Composition #4',
+                'item5': 'Abstract Composition #5'
+            };
+            
+            return titleMap[itemId] || 'Digital Artwork';
+        }
+        
+        // Track download
+        async function trackDownload(artId) {
+            try {
+                // Log the download access
+                await fetch(`${CONFIG.BACKEND_URL}/api.php/track-download`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        artId: artId,
+                        username: piUser.username
+                    })
+                });
+            } catch (error) {
+                console.error('Error tracking download:', error);
+            }
+        }
+        
+        // Show empty state
+        function showEmptyState() {
+            document.getElementById('artGrid').innerHTML = '';
+            document.getElementById('emptyState').style.display = 'block';
+        }
+        
+        // Show status message
+        function showStatus(message, type) {
+            const statusElement = document.getElementById('statusMessage');
+            statusElement.textContent = message;
+            statusElement.className = `status-message ${type}`;
+            statusElement.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
