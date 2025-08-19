@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backend Connection Test - Appraisells</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background-color: #f8f9fa; 
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section { 
+            margin: 20px 0; 
+            padding: 15px; 
+            border-radius: 8px; 
+            border: 1px solid #ddd;
+        }
+        .success { background: #d4edda; border-color: #c3e6cb; }
+        .error { background: #f8d7da; border-color: #f5c6cb; }
+        .warning { background: #fff3cd; border-color: #ffeaa7; }
+        .info { background: #d1ecf1; border-color: #bee5eb; }
+        .loading { background: #e2e3e5; border-color: #d6d8db; }
+        
+        button { 
+            padding: 12px 24px; 
+            margin: 10px 5px; 
+            border: none; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-warning { background: #ffc107; color: black; }
+        .btn-secondary { background: #6c757d; color: white; }
+        
+        button:hover { opacity: 0.9; }
+        button:disabled { opacity: 0.6; cursor: not-allowed; }
+        
+        .log { 
+            font-family: monospace; 
+            font-size: 14px; 
+            line-height: 1.4;
+            max-height: 400px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        .timestamp { color: #666; }
+        .success-text { color: #28a745; }
+        .error-text { color: #dc3545; }
+        .warning-text { color: #ffc107; }
+        .info-text { color: #17a2b8; }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-online { background: #28a745; }
+        .status-offline { background: #dc3545; }
+        .status-unknown { background: #6c757d; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Backend Connection Test</h1>
+        <p>This tool tests the connection between your frontend and the PHP backend without requiring Pi Browser authentication.</p>
+        
+        <!-- Quick Status -->
+        <div class="test-section info">
+            <h3>📊 Current Status</h3>
+            <p><span class="status-indicator status-unknown" id="status-indicator"></span>
+            <span id="status-text">Not tested</span></p>
+            <p><strong>Backend URL:</strong> https://4943480ece59.ngrok-free.app</p>
+            <p><strong>Test Time:</strong> <span id="last-test-time">Never</span></p>
+        </div>
+        
+        <!-- Test Controls -->
+        <div class="test-section">
+            <h3>🧪 Test Controls</h3>
+            <button class="btn-primary" onclick="runQuickTest()" id="quick-test-btn">🚀 Quick Test</button>
+            <button class="btn-success" onclick="runFullTest()" id="full-test-btn">🔍 Full Test</button>
+            <button class="btn-warning" onclick="testSpecificEndpoint()" id="endpoint-test-btn">🎯 Test API Endpoint</button>
+            <button class="btn-secondary" onclick="clearLog()">🗑️ Clear Log</button>
+        </div>
+        
+        <!-- Test Results -->
+        <div class="test-section">
+            <h3>📋 Test Results</h3>
+            <div class="log" id="test-log">
+                <div class="info-text">Ready to run tests...</div>
+            </div>
+        </div>
+        
+        <!-- Troubleshooting -->
+        <div class="test-section warning">
+            <h3>🛠️ Troubleshooting</h3>
+            <h4>If tests fail, check:</h4>
+            <ol>
+                <li><strong>XAMPP Status:</strong> Ensure Apache is running</li>
+                <li><strong>ngrok Tunnel:</strong> Run <code>ngrok http 80</code> in terminal</li>
+                <li><strong>MySQL:</strong> Check if MySQL service is running</li>
+                <li><strong>Firewall:</strong> Ensure no blocking of port 80/443</li>
+                <li><strong>Internet:</strong> Verify stable connection</li>
+            </ol>
+            <p><strong>Manual URLs to test:</strong></p>
+            <ul>
+                <li><a href="https://4943480ece59.ngrok-free.app/health" target="_blank">Health Check</a></li>
+                <li><a href="http://localhost" target="_blank">Local XAMPP</a></li>
+                <li><a href="mysql_diagnostic.php" target="_blank">MySQL Diagnostic</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'https://4943480ece59.ngrok-free.app';
+        
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('test-log');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type + '-text';
+            logDiv.innerHTML += `<div><span class="timestamp">[${timestamp}]</span> <span class="${className}">${message}</span></div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function updateStatus(status, text) {
+            const indicator = document.getElementById('status-indicator');
+            const statusText = document.getElementById('status-text');
+            const timeText = document.getElementById('last-test-time');
+            
+            indicator.className = `status-indicator status-${status}`;
+            statusText.textContent = text;
+            timeText.textContent = new Date().toLocaleString();
+        }
+        
+        function clearLog() {
+            document.getElementById('test-log').innerHTML = '<div class="info-text">Log cleared...</div>';
+        }
+        
+        async function runQuickTest() {
+            const btn = document.getElementById('quick-test-btn');
+            btn.disabled = true;
+            btn.textContent = '🔄 Testing...';
+            
+            log('🚀 Starting quick backend test...', 'info');
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/health`, {
+                    method: 'GET',
+                    headers: {
+                        'ngrok-skip-browser-warning': 'true',
+                        'Content-Type': 'application/json'
+                    },
+                    timeout: 10000
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ Backend is online and responding!', 'success');
+                    log(`📊 Status: ${data.status}`, 'success');
+                    log(`🐘 PHP Version: ${data.php_version}`, 'info');
+                    updateStatus('online', 'Backend Online');
+                } else {
+                    log(`❌ Backend responded with error: ${response.status} ${response.statusText}`, 'error');
+                    updateStatus('offline', `Error ${response.status}`);
+                }
+            } catch (error) {
+                log(`❌ Connection failed: ${error.message}`, 'error');
+                updateStatus('offline', 'Connection Failed');
+                log('💡 Check if ngrok tunnel is running and XAMPP Apache is started', 'warning');
+            }
+            
+            btn.disabled = false;
+            btn.textContent = '🚀 Quick Test';
+        }
+        
+        async function runFullTest() {
+            const btn = document.getElementById('full-test-btn');
+            btn.disabled = true;
+            btn.textContent = '🔍 Testing...';
+            
+            log('=== FULL BACKEND TEST ===', 'info');
+            
+            // Test 1: Health Check
+            await testHealthEndpoint();
+            
+            // Test 2: API Endpoints
+            await testApiEndpoints();
+            
+            // Test 3: Database Connection
+            await testDatabaseConnection();
+            
+            log('=== FULL TEST COMPLETE ===', 'info');
+            
+            btn.disabled = false;
+            btn.textContent = '🔍 Full Test';
+        }
+        
+        async function testHealthEndpoint() {
+            log('📡 Testing health endpoint...', 'info');
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/health`, {
+                    headers: { 'ngrok-skip-browser-warning': 'true' }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ Health endpoint: OK', 'success');
+                    log(`   Server: ${data.status}`, 'info');
+                    log(`   PHP: ${data.php_version}`, 'info');
+                    log(`   Database: ${data.databaseConnected ? 'Connected' : 'Not Connected'}`, data.databaseConnected ? 'success' : 'warning');
+                    log(`   Pi API Key: ${data.piApiKeySet ? 'Set' : 'Not Set'}`, data.piApiKeySet ? 'success' : 'warning');
+                    updateStatus('online', 'All Systems Online');
+                } else {
+                    log(`❌ Health endpoint failed: ${response.status}`, 'error');
+                    updateStatus('offline', `Health Check Failed`);
+                }
+            } catch (error) {
+                log(`❌ Health endpoint error: ${error.message}`, 'error');
+                updateStatus('offline', 'Connection Error');
+            }
+        }
+        
+        async function testApiEndpoints() {
+            log('🎯 Testing API endpoints...', 'info');
+            
+            const endpoints = [
+                '/subscription-status/testuser',
+                '/user-profiles',
+                '/analytics'
+            ];
+            
+            for (const endpoint of endpoints) {
+                try {
+                    const response = await fetch(`${BACKEND_URL}${endpoint}`, {
+                        headers: { 'ngrok-skip-browser-warning': 'true' }
+                    });
+                    
+                    if (response.ok) {
+                        log(`✅ ${endpoint}: OK`, 'success');
+                    } else {
+                        log(`⚠️ ${endpoint}: ${response.status}`, 'warning');
+                    }
+                } catch (error) {
+                    log(`❌ ${endpoint}: ${error.message}`, 'error');
+                }
+            }
+        }
+        
+        async function testDatabaseConnection() {
+            log('🗄️ Testing database connection...', 'info');
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/user-profiles`, {
+                    headers: { 'ngrok-skip-browser-warning': 'true' }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        log('✅ Database connection: OK', 'success');
+                        log(`   Found ${data.profiles ? data.profiles.length : 0} user profiles`, 'info');
+                    } else {
+                        log('⚠️ Database query failed', 'warning');
+                    }
+                } else {
+                    log('❌ Database test failed', 'error');
+                }
+            } catch (error) {
+                log(`❌ Database test error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testSpecificEndpoint() {
+            const endpoint = prompt('Enter API endpoint to test (e.g., /health, /user-profiles):', '/health');
+            if (!endpoint) return;
+            
+            const btn = document.getElementById('endpoint-test-btn');
+            btn.disabled = true;
+            btn.textContent = '🎯 Testing...';
+            
+            log(`🎯 Testing custom endpoint: ${endpoint}`, 'info');
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}${endpoint}`, {
+                    headers: { 'ngrok-skip-browser-warning': 'true' }
+                });
+                
+                log(`📊 Response Status: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+                
+                if (response.ok) {
+                    try {
+                        const data = await response.json();
+                        log(`📄 Response Data: ${JSON.stringify(data, null, 2)}`, 'info');
+                    } catch (e) {
+                        const text = await response.text();
+                        log(`📄 Response Text: ${text}`, 'info');
+                    }
+                }
+            } catch (error) {
+                log(`❌ Endpoint test failed: ${error.message}`, 'error');
+            }
+            
+            btn.disabled = false;
+            btn.textContent = '🎯 Test API Endpoint';
+        }
+        
+        // Auto-run quick test on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(runQuickTest, 1000);
+        });
+    </script>
+</body>
+</html>

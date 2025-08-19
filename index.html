@@ -29,6 +29,19 @@
     <button onclick="login()" id="loginBtn" style="padding:12px 25px; font-size:2em; background-color:#030006; color: white; border:none; border-radius:6px; cursor:pointer;">Login with Pi Browser</button>
   </div>
 
+  <!-- Backend Test Section -->
+  <div id="backend-test-section" style="margin-top: 40px; text-align: center;">
+    <h4 style="color: #666;">🔧 Technical Tests</h4>
+    <button onclick="testBackendConnection()" id="backendTestBtn" style="padding:8px 16px; font-size:1.2em; background-color:#17a2b8; color: white; border:none; border-radius:4px; cursor:pointer; margin: 5px;">Test Backend Connection</button>
+    <button onclick="window.open('pi_diagnostic.html', '_blank')" style="padding:8px 16px; font-size:1.2em; background-color:#6c757d; color: white; border:none; border-radius:4px; cursor:pointer; margin: 5px;">Full Diagnostic</button>
+  </div>
+
+  <!-- Test Results Display -->
+  <div id="test-results" style="margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 8px; font-family: monospace; font-size: 14px; display: none;">
+    <strong>🧪 Test Results:</strong><br>
+    <div id="test-output"></div>
+  </div>
+
   <!-- Pi Browser Detection Message -->
   <div id="browser-warning" style="display: none; margin-top: 20px; text-align: center; color: #d9534f; font-size: 1.1em;">
     ⚠️ This app requires Pi Browser to function properly.<br>
@@ -71,6 +84,99 @@
         }, 200);
       }
     });
+
+    // Backend connection test function
+    async function testBackendConnection() {
+      const resultsDiv = document.getElementById('test-results');
+      const outputDiv = document.getElementById('test-output');
+      const testBtn = document.getElementById('backendTestBtn');
+      
+      // Show results area and update button
+      resultsDiv.style.display = 'block';
+      testBtn.disabled = true;
+      testBtn.textContent = 'Testing...';
+      outputDiv.innerHTML = '';
+      
+      function addTestResult(message, type = 'info') {
+        const timestamp = new Date().toLocaleTimeString();
+        const color = type === 'success' ? 'green' : type === 'error' ? 'red' : type === 'warning' ? 'orange' : 'blue';
+        outputDiv.innerHTML += `<div style="color: ${color};">[${timestamp}] ${message}</div>`;
+      }
+      
+      addTestResult('🔄 Starting backend connection test...', 'info');
+      
+      // Test 1: Check if ngrok tunnel is accessible
+      try {
+        addTestResult('📡 Testing ngrok tunnel: https://4943480ece59.ngrok-free.app', 'info');
+        
+        const response = await fetch('https://4943480ece59.ngrok-free.app/health', {
+          method: 'GET',
+          headers: {
+            'ngrok-skip-browser-warning': 'true',
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          addTestResult(`✅ Backend health check successful!`, 'success');
+          addTestResult(`📊 Server Status: ${data.status}`, 'success');
+          addTestResult(`🐘 PHP Version: ${data.php_version}`, 'success');
+          addTestResult(`🗄️ Database: ${data.databaseConnected ? 'Connected' : 'Not Connected'}`, data.databaseConnected ? 'success' : 'warning');
+          addTestResult(`🔐 Pi API Key: ${data.piApiKeySet ? 'Configured' : 'Not Set'}`, data.piApiKeySet ? 'success' : 'warning');
+          
+          // Test 2: Test a simple API endpoint
+          try {
+            addTestResult('🧪 Testing API endpoint...', 'info');
+            const apiResponse = await fetch('https://4943480ece59.ngrok-free.app/subscription-status/testuser', {
+              headers: { 'ngrok-skip-browser-warning': 'true' }
+            });
+            
+            if (apiResponse.ok) {
+              const apiData = await apiResponse.json();
+              addTestResult('✅ API endpoint responding correctly', 'success');
+            } else {
+              addTestResult(`⚠️ API endpoint returned ${apiResponse.status}`, 'warning');
+            }
+          } catch (apiError) {
+            addTestResult(`❌ API test failed: ${apiError.message}`, 'error');
+          }
+          
+        } else {
+          addTestResult(`❌ Health check failed: ${response.status} ${response.statusText}`, 'error');
+        }
+        
+      } catch (error) {
+        addTestResult(`❌ Backend connection failed: ${error.message}`, 'error');
+        addTestResult('💡 Possible issues:', 'info');
+        addTestResult('   • ngrok tunnel not running (run: ngrok http 80)', 'info');
+        addTestResult('   • XAMPP Apache not started', 'info');
+        addTestResult('   • Firewall blocking connection', 'info');
+        addTestResult('   • Internet connection issues', 'info');
+      }
+      
+      // Test 3: Check if local XAMPP is running (if accessible)
+      try {
+        addTestResult('🏠 Testing local XAMPP (localhost)...', 'info');
+        const localResponse = await fetch('http://localhost/health', {
+          method: 'GET'
+        });
+        
+        if (localResponse.ok) {
+          addTestResult('✅ Local XAMPP is accessible', 'success');
+        } else {
+          addTestResult('⚠️ Local XAMPP responded but with errors', 'warning');
+        }
+      } catch (localError) {
+        addTestResult('❌ Local XAMPP not accessible (normal if using ngrok only)', 'info');
+      }
+      
+      addTestResult('=== TEST COMPLETE ===', 'info');
+      
+      // Reset button
+      testBtn.disabled = false;
+      testBtn.textContent = 'Test Backend Connection';
+    }
   </script>
 </body>
 </html>
