@@ -263,4 +263,5 @@ For technical support or questions:
 
 This project recreates the Pay Me Pi app functionality using PHP and MySQL, configured for Spaceship hosting deployment with secure environment variable management.
 #   a p p r a i s e l l s - p h p  
+ #   p h p - a p p r a i s e l l s  
  
