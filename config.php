@@ -3,7 +3,7 @@
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, ngrok-skip-browser-warning');
 
 // Handle preflight requests
 if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
@@ -47,7 +47,7 @@ define('PI_API_URL', 'https://api.minepi.com');
 define('PI_API_KEY', $_ENV['PI_API_KEY'] ?? ''); // Get from environment variable
 
 // Application Configuration
-define('APP_URL', $_ENV['APP_URL'] ?? 'https://yourdomain.com'); // Update with your Spaceship domain
+define('APP_URL', $_ENV['APP_URL'] ?? 'https://4943480ece59.ngrok-free.app'); // Updated with your ngrok tunnel
 define('APP_ENV', $_ENV['APP_ENV'] ?? 'production');
 define('SUBSCRIPTION_DURATION_DAYS', 30);
 define('AUCTION_PAYMENT_TIMEOUT_HOURS', 24);

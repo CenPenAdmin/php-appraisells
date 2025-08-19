@@ -1,7 +1,7 @@
 // Configuration for Appraisells PHP Application
 const CONFIG = {
-    // Backend API URL - Update this with your Spaceship domain
-    BACKEND_URL: window.location.origin, // Uses current domain
+    // Backend API URL - Using ngrok tunnel for XAMPP backend
+    BACKEND_URL: 'https://4943480ece59.ngrok-free.app', // Your ngrok tunnel
     
     // Pi SDK Configuration
     PI_SDK: {
@@ -22,28 +22,39 @@ const CONFIG = {
 // Initialize Pi SDK when it's available
 function initializePiSDK() {
     if (typeof Pi !== 'undefined') {
-        Pi.init(CONFIG.PI_SDK);
-        console.log('Pi SDK initialized successfully');
-        return true;
+        try {
+            Pi.init({
+                version: "2.0",
+                sandbox: true // Set to true for testnet/sandbox
+            });
+            console.log('Pi SDK initialized successfully');
+            return true;
+        } catch (error) {
+            console.error('Pi SDK initialization failed:', error);
+            return false;
+        }
     } else {
         console.warn('Pi SDK not available yet');
         return false;
     }
 }
 
-// Wait for Pi SDK to load
-function waitForPiSDK(callback, maxWait = 5000) {
+// Wait for Pi SDK to load with better error handling
+function waitForPiSDK(callback, maxWait = 10000) {
     const startTime = Date.now();
     
     function checkPi() {
         if (typeof Pi !== 'undefined') {
-            initializePiSDK();
-            if (callback) callback();
+            if (initializePiSDK()) {
+                if (callback) callback();
+            } else {
+                if (callback) callback(new Error('Pi SDK initialization failed'));
+            }
         } else if (Date.now() - startTime < maxWait) {
-            setTimeout(checkPi, 100);
+            setTimeout(checkPi, 200);
         } else {
             console.error('Pi SDK failed to load within timeout period');
-            if (callback) callback(new Error('Pi SDK timeout'));
+            if (callback) callback(new Error('Pi SDK timeout - please ensure you are using Pi Browser'));
         }
     }
     
@@ -54,7 +65,23 @@ function waitForPiSDK(callback, maxWait = 5000) {
 document.addEventListener('DOMContentLoaded', function() {
     const loginBtn = document.getElementById("loginBtn");
     if (loginBtn) {
-        loginBtn.onclick = login;
+        loginBtn.onclick = function() {
+            // Check if we're in Pi Browser
+            if (!navigator.userAgent.includes('Pi Browser') && !navigator.userAgent.includes('iPhone')) {
+                alert('This app requires Pi Browser to function properly. Please open it in Pi Browser.');
+                return;
+            }
+            
+            // Wait for Pi SDK and then redirect
+            waitForPiSDK(function(error) {
+                if (error) {
+                    console.error('Pi SDK not available:', error);
+                    alert('Pi SDK not available. Please ensure you are using Pi Browser and try again.');
+                } else {
+                    window.location.href = 'profile.html';
+                }
+            });
+        };
     }
     
     // Initialize Pi SDK when DOM is loaded
@@ -62,8 +89,21 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function login() {
-    // Simply redirect to profile page - it will handle its own Pi authentication
-    window.location.href = 'profile.html';
+    // Check if we're in Pi Browser
+    if (!navigator.userAgent.includes('Pi Browser') && !navigator.userAgent.includes('iPhone')) {
+        alert('This app requires Pi Browser to function properly. Please open it in Pi Browser.');
+        return;
+    }
+    
+    // Wait for Pi SDK and then redirect
+    waitForPiSDK(function(error) {
+        if (error) {
+            console.error('Pi SDK not available:', error);
+            alert('Pi SDK not available. Please ensure you are using Pi Browser and try again.');
+        } else {
+            window.location.href = 'profile.html';
+        }
+    });
 }
  let piUser = null; // Will hold the authenticated Pi user
     
@@ -97,29 +137,33 @@ function login() {
         const response1 = await fetch(`${CONFIG.BACKEND_URL}/health`, {
           method: 'GET',
           headers: {
-            'ngrok-skip-browser-warning': 'true'
+            'ngrok-skip-browser-warning': 'true',
+            'Content-Type': 'application/json'
           }
         });
         
         if (response1.ok) {
           const result1 = await response1.json();
           addDebugInfo(`✅ Health test successful: ${result1.status}`);
+          addDebugInfo(`📊 Backend info: PHP ${result1.php_version}, DB: ${result1.databaseConnected ? 'Connected' : 'Not connected'}`);
         } else {
           addDebugInfo(`❌ Health test failed: ${response1.status} ${response1.statusText}`);
         }
         
       } catch (error) {
         addDebugInfo(`❌ Health test error: ${error.message}`);
+        addDebugInfo(`🔧 Make sure your ngrok tunnel is running and XAMPP Apache is started`);
       }
       
-      // Test 2: Direct subscription check for this3is2ridiculous
+      // Test 2: Direct subscription check for test user
       try {
         addDebugInfo('Test 2: Direct subscription check...');
         
-        const response2 = await fetch(`${CONFIG.BACKEND_URL}/subscription-status/this3is2ridiculous`, {
+        const response2 = await fetch(`${CONFIG.BACKEND_URL}/subscription-status/testuser`, {
           method: 'GET',
           headers: {
-            'ngrok-skip-browser-warning': 'true'
+            'ngrok-skip-browser-warning': 'true',
+            'Content-Type': 'application/json'
           }
         });
         
@@ -401,24 +445,40 @@ function logout() {
         addDebugInfo('🔐 Starting Pi Network authentication...');
         console.log('🔐 Starting Pi Network authentication...');
         
+        // Check if we're in Pi Browser
+        if (!navigator.userAgent.includes('Pi Browser') && !navigator.userAgent.includes('iPhone')) {
+          throw new Error('This app requires Pi Browser. Please open it in Pi Browser.');
+        }
+        
+        addDebugInfo('✅ Pi Browser detected');
+        
         // Check if Pi SDK is available
         if (typeof Pi === 'undefined') {
-          throw new Error('Pi SDK not loaded. Please open this app in Pi Browser.');
+          throw new Error('Pi SDK not loaded. Please ensure you are using Pi Browser and refresh the page.');
         }
         
         addDebugInfo('✅ Pi SDK detected');
         
-        // Initialize Pi SDK
-        Pi.init({
-          version: "2.0",
-          sandbox: true // Set to true for testnet
-        });
+        // Initialize Pi SDK with proper error handling
+        try {
+          await Pi.init({
+            version: "2.0",
+            sandbox: true // Set to true for testnet
+          });
+          addDebugInfo('✅ Pi SDK initialized successfully');
+        } catch (initError) {
+          throw new Error(`Pi SDK initialization failed: ${initError.message}`);
+        }
         
-        addDebugInfo('✅ Pi SDK initialized');
         console.log('🔐 Pi SDK initialized, authenticating user...');
         
         // Authenticate user with Pi Network
-        const auth = await Pi.authenticate(['username', 'payments']);
+        const auth = await Pi.authenticate(['username', 'payments'], function(scopes) {
+          // Handle scope callback if needed
+          console.log('Pi Authentication scopes approved:', scopes);
+          addDebugInfo(`🔐 Pi Authentication scopes approved: ${JSON.stringify(scopes)}`);
+        });
+        
         piUser = auth.user;
         
         addDebugInfo(`✅ Pi Network authentication successful! User: ${piUser.username}`);

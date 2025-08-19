@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Appraisells System Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-item { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background-color: #d4edda; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; border: 1px solid #f5c6cb; }
+        .warning { background-color: #fff3cd; border: 1px solid #ffeaa7; }
+        .info { background-color: #d1ecf1; border: 1px solid #bee5eb; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        #results { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Appraisells System Test</h1>
+    <p>This page tests the integration between your frontend, ngrok tunnel, and Pi Browser.</p>
+    
+    <div class="test-item info">
+        <strong>Current Configuration:</strong><br>
+        Frontend: https://cenpenadmin.github.io/php-appraisells/<br>
+        Backend: https://4943480ece59.ngrok-free.app<br>
+        Environment: Pi Browser Sandbox
+    </div>
+    
+    <button onclick="runAllTests()">🚀 Run All Tests</button>
+    <button onclick="testPiSDK()">🔐 Test Pi SDK</button>
+    <button onclick="testBackend()">🌐 Test Backend</button>
+    <button onclick="testAuth()">👤 Test Authentication</button>
+    
+    <div id="results"></div>
+    
+    <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+    <script>
+        const BACKEND_URL = 'https://4943480ece59.ngrok-free.app';
+        
+        function addResult(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `test-item ${type}`;
+            div.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            results.appendChild(div);
+        }
+        
+        async function testPiSDK() {
+            addResult('Testing Pi SDK...', 'info');
+            
+            // Check Pi Browser
+            const isPiBrowser = navigator.userAgent.includes('Pi Browser') || navigator.userAgent.includes('iPhone');
+            if (!isPiBrowser) {
+                addResult('❌ Not in Pi Browser - authentication will not work', 'error');
+                return false;
+            }
+            addResult('✅ Pi Browser detected', 'success');
+            
+            // Check Pi SDK
+            if (typeof Pi === 'undefined') {
+                addResult('❌ Pi SDK not loaded', 'error');
+                return false;
+            }
+            addResult('✅ Pi SDK available', 'success');
+            
+            // Initialize Pi SDK
+            try {
+                await Pi.init({ version: "2.0", sandbox: true });
+                addResult('✅ Pi SDK initialized successfully', 'success');
+                return true;
+            } catch (error) {
+                addResult(`❌ Pi SDK initialization failed: ${error.message}`, 'error');
+                return false;
+            }
+        }
+        
+        async function testBackend() {
+            addResult('Testing backend connection...', 'info');
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/health`, {
+                    headers: { 'ngrok-skip-browser-warning': 'true' }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    addResult('✅ Backend health check passed', 'success');
+                    addResult(`📊 Server: ${data.status}, PHP: ${data.php_version}, DB: ${data.databaseConnected ? 'Connected' : 'Not connected'}`, 'info');
+                    return true;
+                } else {
+                    addResult(`❌ Backend health check failed: ${response.status}`, 'error');
+                    return false;
+                }
+            } catch (error) {
+                addResult(`❌ Backend connection error: ${error.message}`, 'error');
+                addResult('💡 Check that ngrok tunnel is running and XAMPP Apache is started', 'warning');
+                return false;
+            }
+        }
+        
+        async function testAuth() {
+            addResult('Testing Pi authentication...', 'info');
+            
+            const piSDKReady = await testPiSDK();
+            if (!piSDKReady) return false;
+            
+            try {
+                const auth = await Pi.authenticate(['username', 'payments']);
+                addResult(`✅ Authentication successful! User: ${auth.user.username}`, 'success');
+                addResult(`👤 UID: ${auth.user.uid}, Wallet: ${auth.user.wallet || 'Not provided'}`, 'info');
+                
+                // Test backend user creation
+                const response = await fetch(`${BACKEND_URL}/create-user-profile`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'ngrok-skip-browser-warning': 'true'
+                    },
+                    body: JSON.stringify({
+                        username: auth.user.username,
+                        wallet: auth.user.wallet,
+                        userUid: auth.user.uid
+                    })
+                });
+                
+                if (response.ok) {
+                    addResult('✅ User profile created/updated in backend', 'success');
+                } else {
+                    addResult('⚠️ User profile creation failed (might already exist)', 'warning');
+                }
+                
+                return true;
+            } catch (error) {
+                addResult(`❌ Authentication failed: ${error.message}`, 'error');
+                return false;
+            }
+        }
+        
+        async function runAllTests() {
+            document.getElementById('results').innerHTML = '';
+            addResult('🧪 Starting comprehensive system test...', 'info');
+            
+            const backendOk = await testBackend();
+            const piSDKOk = await testPiSDK();
+            
+            if (backendOk && piSDKOk) {
+                addResult('🎉 All basic tests passed! Ready for authentication test.', 'success');
+                await testAuth();
+            } else {
+                addResult('❌ Basic tests failed. Fix issues before proceeding.', 'error');
+            }
+        }
+        
+        // Auto-run basic tests on load
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => {
+                addResult('🔍 Auto-running basic checks...', 'info');
+                testPiSDK();
+                testBackend();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

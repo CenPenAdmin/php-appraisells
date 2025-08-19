@@ -2,9 +2,18 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Appraisells</title>
-  <link rel="stylesheet" href="style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Appraisells - Fine Art Professional Appraisals</title>
+  
+  <!-- Pi Browser Optimization -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  
+  <!-- Pi SDK - Critical for Pi Browser -->
   <script src="https://sdk.minepi.com/pi-sdk.js"></script>
+  
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
@@ -17,10 +26,51 @@
 
  <!-- Pi Network Login Button -->
   <div id="login-section" style="margin-top: 100px; text-align: center;">
-    <button onclick="window.location.href='profile.html'" id="loginBtn" style="padding:12px 25px; font-size:2em; background-color:#030006; color: white; border:none; border-radius:6px; cursor:pointer;">Login with Pi Browser</button>
+    <button onclick="login()" id="loginBtn" style="padding:12px 25px; font-size:2em; background-color:#030006; color: white; border:none; border-radius:6px; cursor:pointer;">Login with Pi Browser</button>
+  </div>
 
+  <!-- Pi Browser Detection Message -->
+  <div id="browser-warning" style="display: none; margin-top: 20px; text-align: center; color: #d9534f; font-size: 1.1em;">
+    ⚠️ This app requires Pi Browser to function properly.<br>
+    Please open <strong>https://cenpenadmin.github.io/php-appraisells/</strong> in Pi Browser.
+  </div>
+
+  <!-- Loading indicator for Pi SDK -->
+  <div id="pi-loading" style="display: none; margin-top: 20px; text-align: center; color: #666;">
+    🔄 Loading Pi SDK...
   </div>
 
   <script src="script.js"></script>
+  
+  <script>
+    // Enhanced Pi Browser detection and SDK loading
+    document.addEventListener('DOMContentLoaded', function() {
+      const isPiBrowser = navigator.userAgent.includes('Pi Browser') || navigator.userAgent.includes('iPhone');
+      const warningDiv = document.getElementById('browser-warning');
+      const loadingDiv = document.getElementById('pi-loading');
+      
+      if (!isPiBrowser) {
+        warningDiv.style.display = 'block';
+        console.warn('Not in Pi Browser - app functionality will be limited');
+      } else {
+        // Show loading indicator while Pi SDK loads
+        loadingDiv.style.display = 'block';
+        
+        // Wait for Pi SDK to be available
+        let checkCount = 0;
+        const checkPiSDK = setInterval(() => {
+          checkCount++;
+          if (typeof Pi !== 'undefined') {
+            loadingDiv.style.display = 'none';
+            console.log('✅ Pi SDK loaded successfully');
+            clearInterval(checkPiSDK);
+          } else if (checkCount > 50) { // 10 seconds
+            loadingDiv.innerHTML = '❌ Pi SDK failed to load. Please refresh the page.';
+            clearInterval(checkPiSDK);
+          }
+        }, 200);
+      }
+    });
+  </script>
 </body>
 </html>

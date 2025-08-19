@@ -1,0 +1,72 @@
+# Environment variables (contains sensitive information)
+.env
+.env.local
+.env.production
+.env.staging
+
+# Pi API Keys and sensitive configuration
+pi_config.json
+secrets.json
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Log files
+*.log
+logs/
+error.log
+access.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE and editor files
+.vscode/settings.json
+.idea/
+*.sublime-project
+*.sublime-workspace
+*~
+
+# Node modules (if using any frontend build tools)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Composer (if using PHP dependencies)
+vendor/
+composer.lock
+
+# Backup files
+*.bak
+*.backup
+backup/
+
+# User uploads and generated content
+uploads/
+user_data/
+generated/
+
+# Cache directories
+cache/
+.cache/
+
+# Session files
+sessions/
+
+# Configuration backups
+config_backup/
